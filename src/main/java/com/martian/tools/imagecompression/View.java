@@ -39,6 +39,8 @@ public class View implements Message {
     public JPanel root;
     private JTextField savePathTextField;
     private JButton saveButton;
+    private JButton includeButton;
+    private JTextField includeTextField;
 
 
     Options options = new Options();
@@ -147,6 +149,32 @@ public class View implements Message {
             }
         });
 
+        includeButton.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                super.mouseClicked(e);
+                String text = savePathTextField.getText();
+                if (Strings.isNullOrEmpty(text)) {
+                    JOptionPane.showInternalMessageDialog(root, "save path is empty", "error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                File input = new File(text);
+                if (Files.isFile().apply(input)) {
+                    JOptionPane.showInternalMessageDialog(root, "save path is file", "error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                if (!input.exists()) {
+                    if (!input.mkdirs()) {
+                        JOptionPane.showInternalMessageDialog(root, "mkdir error", "error", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                }
+                options.to = input.getAbsolutePath();
+                options.errorLog = input.getAbsolutePath() + File.separator + "error.txt";
+                new Core(View.this).compression(options, includeTextField.getText());
+            }
+        });
+
         options.key = key;
 
         drop(infoText, new Function<File, Void>() {
@@ -167,6 +195,15 @@ public class View implements Message {
             @Override
             public Void apply(File input) {
                 savePathTextField.setText(input.getAbsolutePath());
+                return null;
+            }
+        });
+
+        drop(includeTextField, new Function<File, Void>() {
+            @Override
+            public Void apply(File input) {
+                if (input.exists() && input.isFile())
+                    includeTextField.setText(input.getAbsolutePath());
                 return null;
             }
         });

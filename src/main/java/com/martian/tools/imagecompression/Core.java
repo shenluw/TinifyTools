@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *         创建日期：2016/12/2 15:21
  */
 public class Core {
+    private static final String TAG_SPLIT = "%&%";
     private Message message;
     private final Set<FileMap> fileMaps = new HashSet<>();
     private ExecutorService executorService;
@@ -64,13 +65,13 @@ public class Core {
                         dir = dir.replace(root, "");
                     }
                 }
+                fileMap.toRoot = dir;
                 String toDir = options.to + File.separator + dir;
                 execute(fileMap, options, toDir);
             }
         }
     }
 
-    // FIXME: 2017/1/4 导入文件压缩未实现
     public void compression(Options options, String include) {
         if (Strings.isNullOrEmpty(include)) {
             message.send("include file is empty", null);
@@ -91,18 +92,26 @@ public class Core {
             String[] files = trim.split(",");
             fileMaps.clear();
             for (int i = 0; i < files.length; i++) {
-                File f = new File(files[i]);
+                String p = files[i];
+                String[] split = p.split(TAG_SPLIT);
+                File f = new File(split[0]);
                 if (!f.exists()) {
-                    message.send(String.format("compression include file not exists, path = %s ", files[i]), null);
+                    message.send(String.format("compression include file not exists, path = %s ", p), null);
                 } else {
                     if (options.filter.accept(f)) {
                         FileMap fileMap = new FileMap();
                         fileMap.dir = f.getParent();
                         fileMap.file = f;
+                        fileMap.toRoot = split[1];
                         fileMap.name = f.getName();
-                        execute(fileMap, options, options.to + File.separator + "include");
+                        fileMaps.add(fileMap);
                     }
                 }
+            }
+            total = fileMaps.size();
+            message.send("compression file count: " + fileMaps.size(), null);
+            for (FileMap fileMap : fileMaps) {
+                execute(fileMap, options, options.to + File.separator + fileMap.toRoot + File.separator + "include");
             }
         } catch (IOException e) {
             message.send(String.format("compression include file error, msg = %s ", e.getMessage()), e);
@@ -128,7 +137,7 @@ public class Core {
 
                 } catch (Exception e) {
                     StringBuilder builder = error.get();
-                    builder.append(fileMap.file.getAbsolutePath()).append(",");
+                    builder.append(fileMap.file.getAbsolutePath()).append(TAG_SPLIT).append(fileMap.toRoot).append(",");
                     error.set(builder);
                     message.send(String.format("compression error file = %s ,msg = %s", fileMap.file.getAbsolutePath(), e.getMessage()), e);
                     compressionDone(count.incrementAndGet());
@@ -205,6 +214,7 @@ public class Core {
         String dir;
         String name;
         File file;
+        String toRoot;
     }
 
     public static class Options {
